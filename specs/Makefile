@@ -9,6 +9,10 @@ DOCKER = docker
 
 # ALL
 
+redis:
+	cd redis && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build run.go \
+	&& ${DOCKER} build -t ${REPO}/redis .
+	
 spark:
 	cd spark && ${DOCKER} build -t ${REPO}/spark .
 

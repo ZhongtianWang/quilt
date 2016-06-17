@@ -1,0 +1,35 @@
+(import "strings")
+
+(define image "zhongtian/redis")
+
+(define (createMaster prefix auth)
+  (let ((master (sprintf "%s-ms" prefix))
+       (redisDocker (docker image "run")))
+    (setEnv redisDocker "AUTH" auth)
+    (setEnv redisDocker "ROLE" "master")
+    (label master redisDocker)))
+
+(define (createWorkers prefix n auth master)
+  (let ((labelNames (strings.Range (sprintf "%s-wk" prefix) n))
+       (redisDockers (makeList n (docker image "run"))))
+    (setEnv redisDockers "MASTER" (labelHost master))
+    (setEnv redisDockers "AUTH" auth)
+    (setEnv redisDockers "ROLE" "worker")
+    (map label labelNames redisDockers)))
+
+(define (link master workers)
+  (connect 6379 master workers)
+  (connect 6379 workers master))
+
+(define (New prefix nWorker auth)
+  (let ((master (createMaster prefix auth))
+       (workers (createWorkers prefix nWorker auth master)))
+      (link master workers)
+      (hmap ("master" master)
+        ("worker" workers))))
+
+(define (Exclusive redisMap)
+  (let ((exfn (lambda (x) (labelRule "exclusive" x)))
+    (rules (map exfn (hmapValues redisMap)))
+    (plfn (lambda (x) (place x (hmapValues redisMap)))))
+    (map plfn rules)))
