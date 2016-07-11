@@ -7,6 +7,7 @@ package network
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/NetSys/quilt/db"
 	"github.com/NetSys/quilt/minion/docker"
@@ -25,6 +26,15 @@ const gatewayMAC = "02:00:0a:00:00:01"
 
 // Run blocks implementing the network services.
 func Run(conn db.Conn, dk docker.Client) {
+	for {
+		if odb, err := ovsdb.Open(); err == nil {
+			odb.Close()
+			break
+		}
+		log.Debug("Could not connect to ovsdb-server. Retry in 5 seconds.")
+		time.Sleep(5 * time.Second)
+	}
+
 	for range conn.TriggerTick(30, db.MinionTable, db.ContainerTable,
 		db.ConnectionTable, db.LabelTable, db.EtcdTable).C {
 		runWorker(conn, dk)
