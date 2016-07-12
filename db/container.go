@@ -18,6 +18,7 @@ type Container struct {
 	Mac      string
 	DockerID string
 	Image    string
+	Host     string
 	Command  []string
 	Labels   []string
 	Env      map[string]string
@@ -63,6 +64,7 @@ func (c Container) equal(r row) bool {
 		c.Mac == other.Mac &&
 		c.DockerID == other.DockerID &&
 		c.Image == other.Image &&
+		c.Host == other.Host &&
 		util.StrSliceEqual(c.Command, other.Command) &&
 		util.StrSliceEqual(c.Labels, other.Labels) &&
 		util.StrStrMapEqual(c.Env, other.Env)
@@ -91,6 +93,10 @@ func (c Container) String() string {
 
 	if c.Mac != "" {
 		tags = append(tags, fmt.Sprintf("Mac: %s", c.Mac))
+	}
+
+	if c.Host != "" {
+		tags = append(tags, fmt.Sprintf("Host: %s", c.Host))
 	}
 
 	if len(c.Labels) > 0 {

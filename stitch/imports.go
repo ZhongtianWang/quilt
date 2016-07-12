@@ -49,7 +49,7 @@ func resolveImportsRec(asts []ast, path string, imported []string,
 
 		f, err := util.Open(modulePath)
 		if err != nil {
-			return nil, fmt.Errorf("unable to open import %s", name)
+			return nil, fmt.Errorf("unable to open import %s %s", name, err)
 		}
 
 		defer f.Close()

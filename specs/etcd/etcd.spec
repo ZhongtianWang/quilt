@@ -1,4 +1,5 @@
 (import "github.com/NetSys/quilt/specs/stdlib/strings")
+(import "log")
 
 (define image "quilt/etcd")
 
@@ -6,8 +7,20 @@
   (let ((labelNames (strings.Range prefix n))
         (etcdDockers (makeList n (docker image "run")))
         (peers (map label labelNames etcdDockers))
-        (etcdHosts (strings.Join (map labelHost labelNames) ","))
+        (etcdHosts (strings.Join (labelHost labelNames) ","))
         (mapEnvs (lambda (c h) (setEnv c "HOST" (labelHost h)))))
     (map mapEnvs etcdDockers labelNames)
     (setEnv etcdDockers "PEERS" etcdHosts)
     (connect (list 1000 65535) peers peers)))
+
+
+(define (BetterNew prefix n)
+  (let ((containers (makeList n (docker image "run")))
+       (lbl (label prefix containers))
+       (hosts (labelHost lbl))
+       (mapEnvs (lambda (c h) (setEnv c "HOST" h))))   
+    (map mapEnvs containers hosts) 
+    //(log.Println hosts)
+    (setEnv containers "PEERS" (strings.Join hosts ","))
+    //(connect (list 1000 65535) lbl lbl)
+))

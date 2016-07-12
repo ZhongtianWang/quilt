@@ -8,7 +8,7 @@ LINE_LENGTH_EXCLUDE=./constants/awsConstants.go \
 		    ./minion/network/link_test.go \
 		    ./minion/pb/pb.pb.go \
 
-REPO = quilt
+REPO = zhongtian
 DOCKER = docker
 SHELL := /bin/bash
 

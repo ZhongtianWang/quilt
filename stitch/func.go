@@ -632,7 +632,12 @@ func labelHostImpl(ctx *evalCtx, args []ast) (ast, error) {
 	if !ok {
 		return nil, fmt.Errorf("labelHost applies to labels: %s", args[0])
 	}
-	return astString(fmt.Sprintf("%s.q", string(label.ident))), nil
+	var hosts astList
+	for _, container := range label.elems {
+		host := fmt.Sprintf("%d.%s.q", container.ID, string(label.ident))
+		hosts = append(hosts, astString(host))
+	}
+	return hosts, nil
 }
 
 func listImpl(ctx *evalCtx, args []ast) (ast, error) {

@@ -150,7 +150,7 @@ func runWorker(conn db.Conn, dk docker.Client) {
 	var connections []db.Connection
 	conn.Transact(func(view db.Database) error {
 		containers = view.SelectFromContainer(func(c db.Container) bool {
-			return c.DockerID != "" && c.IP != "" && c.Mac != ""
+			return c.DockerID != "" && c.IP != "" && c.Mac != "" && c.Host != ""
 		})
 		labels = view.SelectFromLabel(func(l db.Label) bool {
 			return l.IP != ""
@@ -158,6 +158,8 @@ func runWorker(conn db.Conn, dk docker.Client) {
 		connections = view.SelectFromConnection(nil)
 		return nil
 	})
+
+	log.Println("containers: ", containers)
 
 	updateNamespaces(containers)
 	updateVeths(containers)
@@ -1224,6 +1226,8 @@ func updateEtcHosts(dk docker.Client, containers []db.Container, labels []db.Lab
 func generateEtcHosts(dbc db.Container, labelIP map[string]string,
 	conns map[string][]string) string {
 
+	log.Println("dbc.Container: ", dbc)
+
 	type entry struct {
 		ip, host string
 	}
@@ -1253,7 +1257,7 @@ func generateEtcHosts(dbc db.Container, labelIP map[string]string,
 				continue
 			}
 			if ip := labelIP[toLabel]; ip != "" {
-				newHosts[entry{ip, toLabel + ".q"}] = struct{}{}
+				newHosts[entry{ip, dbc.Host}] = struct{}{}
 			}
 		}
 	}
@@ -1262,6 +1266,8 @@ func generateEtcHosts(dbc db.Container, labelIP map[string]string,
 	for h := range newHosts {
 		hosts = append(hosts, fmt.Sprintf("%-15s %s", h.ip, h.host))
 	}
+
+	log.Println("worker generate hosts: ", hosts)
 
 	sort.Strings(hosts)
 	return strings.Join(hosts, "\n") + "\n"

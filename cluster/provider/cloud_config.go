@@ -6,7 +6,7 @@ import (
 )
 
 const (
-	quiltImage = "quilt/quilt:latest"
+	quiltImage = "zhongtian/minion:latest"
 )
 
 func cloudConfigUbuntu(keys []string, ubuntuVersion string) string {

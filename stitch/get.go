@@ -3,11 +3,12 @@ package stitch
 import (
 	"bufio"
 	"fmt"
-	"golang.org/x/tools/go/vcs"
 	"os"
 	"os/user"
 	"path/filepath"
 	"text/scanner"
+
+	"golang.org/x/tools/go/vcs"
 
 	"github.com/NetSys/quilt/util"
 
@@ -22,7 +23,7 @@ var download = func(repo *vcs.RepoRoot, dir string) error {
 }
 
 var create = func(repo *vcs.RepoRoot, dir string) error {
-	return repo.VCS.Create(dir, repo.Root)
+	return repo.VCS.Create(dir, repo.Repo)
 }
 
 // GetQuiltPath returns the user-defined QUILT_PATH, or the default absolute QUILT_PATH,

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"sort"
 	"strings"
 	"text/scanner"
@@ -148,6 +149,7 @@ func updateConnections(view db.Database, spec stitch.Stitch) {
 func queryContainers(spec stitch.Stitch) []db.Container {
 	containers := map[int]*db.Container{}
 	for _, c := range spec.QueryContainers() {
+		log.Println("stitch query container: ", *c)
 		containers[c.ID] = &db.Container{
 			Command: c.Command,
 			Image:   c.Image,
@@ -158,6 +160,7 @@ func queryContainers(spec stitch.Stitch) []db.Container {
 	for label, ids := range spec.QueryLabels() {
 		for _, id := range ids {
 			containers[id].Labels = append(containers[id].Labels, label)
+			containers[id].Host = fmt.Sprintf("%d.%s.q", id, label)
 		}
 	}
 
@@ -165,6 +168,8 @@ func queryContainers(spec stitch.Stitch) []db.Container {
 	for _, c := range containers {
 		ret = append(ret, *c)
 	}
+
+	log.Println("QUERY CONTAINERS: ", ret)
 
 	return ret
 }
@@ -206,6 +211,9 @@ func updateContainers(view db.Database, spec stitch.Stitch) {
 		dbc.Command = newc.Command
 		dbc.Image = newc.Image
 		dbc.Env = newc.Env
+		dbc.Host = newc.Host
+
+		log.Println("update container: ", dbc)
 		view.Commit(dbc)
 	}
 }
