@@ -29,19 +29,22 @@ func Run(conn db.Conn) {
 	var clst *cluster
 	for range conn.TriggerTick(60, db.ClusterTable).C {
 		var dbCluster db.Cluster
-		err := conn.Transact(func(db db.Database) error {
+		if err := conn.Transact(func(db db.Database) error {
 			var err error
 			dbCluster, err = db.GetCluster()
 			return err
-		})
+		}); err != nil {
+			continue
+		}
 
-		if err == nil && clst.namespace != dbCluster.Namespace {
-			if clst != nil {
-				clst.fm.stop()
-				clst.trigger.Stop()
-			}
+		if clst == nil {
 			clst = newCluster(conn, dbCluster.Namespace)
-			go clst.listen()
+		}
+
+		if clst != nil && clst.namespace != dbCluster.Namespace {
+			clst.fm.stop()
+			clst.trigger.Stop()
+			clst = newCluster(conn, dbCluster.Namespace)
 		}
 	}
 }
@@ -64,6 +67,7 @@ func newCluster(conn db.Conn, namespace string) *cluster {
 		}
 	}
 
+	go clst.listen()
 	return clst
 }
 
