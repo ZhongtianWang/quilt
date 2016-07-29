@@ -2,16 +2,12 @@ package network
 
 import (
 	"fmt"
-	"reflect"
-	"runtime"
-	"sort"
 	"testing"
 
 	"github.com/NetSys/quilt/db"
+	"github.com/NetSys/quilt/join"
 	"github.com/NetSys/quilt/minion/ovsdb"
 )
-
-var testSwitch = "testSwitch"
 
 func TestACL(t *testing.T) {
 	client := ovsdb.NewFakeOvsdbClient()
@@ -20,23 +16,24 @@ func TestACL(t *testing.T) {
 		return client, nil
 	}
 
-	defaultRules := []ovsdb.AclCore{
+	defaultAclCores := []ovsdb.AclCore{
 		{
 			Priority:  0,
 			Match:     "ip",
 			Action:    "drop",
-			Direction: "to-lport"},
-
+			Direction: "to-lport",
+		},
 		{
 			Priority:  0,
 			Match:     "ip",
 			Action:    "drop",
-			Direction: "from-lport"},
+			Direction: "from-lport",
+		},
 	}
 
 	// `expACLs` should NOT contain the default rules.
 	checkAcl := func(connections []db.Connection, labels []db.Label,
-		containers []db.Container, coreExpACLs []ovsdb.AclCore,
+		containers []db.Container, expectedAclCores []ovsdb.AclCore,
 		resetClient bool) {
 		if resetClient {
 			client = ovsdb.NewFakeOvsdbClient()
@@ -48,26 +45,29 @@ func TestACL(t *testing.T) {
 		if err != nil {
 			t.Error(err)
 		}
-		coreExpACLs = append(defaultRules, coreExpACLs...)
-
-		var expACLs []ovsdb.Acl
-		for _, core := range coreExpACLs {
-			expACLs = append(expACLs, ovsdb.Acl{
-				Core: core,
-			})
-		}
-
 		updateACLs(connections, labels, containers)
-		res, err = client.ListACLs(testSwitch)
+
+		res, err = client.ListACLs(lSwitch)
 		if err != nil {
 			t.Error(err)
 		}
-		sort.Sort(ACLList(expACLs))
-		sort.Sort(ACLList(res))
-		if !reflect.DeepEqual(expACLs, res) {
-			_, _, callerLine, _ := runtime.Caller(1)
-			t.Errorf("Test at line %d failed. Expected %v, got %v.",
-				callerLine, expACLs, res)
+
+		expectedAclCores = append(defaultAclCores, expectedAclCores...)
+
+		key := func(val interface{}) interface{} {
+			switch v := val.(type) {
+			case ovsdb.AclCore:
+				return v
+			case ovsdb.Acl:
+				return v.Core
+			}
+			return nil
+		}
+
+		pair, _, _ := join.HashJoin(AclCoreSlice(expectedAclCores),
+			AclSlice(res), key, key)
+		if len(pair) != len(expectedAclCores) {
+			t.Error("Local ACLs do not match ovsdbACLs.")
 		}
 	}
 
@@ -542,87 +542,22 @@ func (lst ACLList) Less(i, j int) bool {
 	}
 }
 
-// Because we only use a single switch, this ovsdb mock assumes that all configuration
-// changes apply to the same switch.
-type fakeOvsdb struct {
-	acls []ovsdb.Acl
+type AclSlice []ovsdb.Acl
+
+func (acls AclSlice) Get(i int) interface{} {
+	return acls[i]
 }
 
-// Unused in the tests.
-func (odb *fakeOvsdb) Close() {}
-
-func (odb *fakeOvsdb) CreateSwitch(lswitch string) error {
-	return nil
+func (acls AclSlice) Len() int {
+	return len(acls)
 }
 
-func (odb *fakeOvsdb) ListLogicalPorts(lswitch string) ([]ovsdb.LPort, error) {
-	return nil, nil
+type AclCoreSlice []ovsdb.AclCore
+
+func (cores AclCoreSlice) Get(i int) interface{} {
+	return cores[i]
 }
 
-func (odb *fakeOvsdb) CreateLogicalPort(lswitch string, lport ovsdb.LPort) error {
-	return nil
-}
-
-func (odb *fakeOvsdb) DeleteLogicalPort(lswitch string, lport ovsdb.LPort) error {
-	return nil
-}
-
-func (odb *fakeOvsdb) ListACLs(lswitch string) ([]ovsdb.Acl, error) {
-	var result []ovsdb.Acl
-	for _, acl := range odb.acls {
-		result = append(result, acl)
-	}
-	return result, nil
-}
-
-func (odb *fakeOvsdb) CreateACL(lswitch string, acl ovsdb.Acl) error {
-	odb.acls = append(odb.acls, acl)
-
-	return nil
-}
-
-func (odb *fakeOvsdb) DeleteACL(lswitch string, acl ovsdb.Acl) error {
-	for i := 0; i < len(odb.acls); i++ {
-		odbACL := odb.acls[i]
-		if acl.Core.Direction != "*" &&
-			odbACL.Core.Direction != acl.Core.Direction {
-			continue
-		}
-		if acl.Core.Match != "*" && odbACL.Core.Match != acl.Core.Match {
-			continue
-		}
-		if acl.Core.Priority >= 0 &&
-			odbACL.Core.Priority != acl.Core.Priority {
-			continue
-		}
-		odb.acls = append(odb.acls[:i], odb.acls[i+1:]...)
-		// Because deleting an element shifts the i+1th element into the ith
-		// spot, we need to stay at the same index to not skip the next element.
-		i--
-	}
-	return nil
-}
-
-func (odb *fakeOvsdb) GetInterfacesMap() (map[string][]ovsdb.Interface, error) {
-	return nil, nil
-}
-
-func (odb *fakeOvsdb) CreateInterface(iface ovsdb.Interface) error {
-	return nil
-}
-
-func (odb *fakeOvsdb) DeleteInterface(iface ovsdb.Interface) error {
-	return nil
-}
-
-func (odb *fakeOvsdb) ModifyInterface(iface ovsdb.Interface) error {
-	return nil
-}
-
-func (odb *fakeOvsdb) SetBridgeMac(bridge, mac string) error {
-	return nil
-}
-
-func (odb *fakeOvsdb) GetOFPortsMap() (map[string]int, error) {
-	return nil, nil
+func (cores AclCoreSlice) Len() int {
+	return len(cores)
 }
